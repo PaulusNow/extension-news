@@ -1,0 +1,16 @@
+{
+    "name": "Deteksi Berita Hoax",
+    "version": "1.0.0",
+    "description": "Deteksi Berita Hoax",
+    "manifest_version": 3,
+    "author": "Jaya-jaya-jaya",
+    "permissions": ["tabs"],
+    "background": {
+        "service_worker": "templates/background.js"
+    },
+    "action":{
+        "default_icon": "image/icon.png",
+        "default_popup": "templates/index.html",
+        "default_title": "Latest Deteksi Berita Hoax"
+    }
+}
