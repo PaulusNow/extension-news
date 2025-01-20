@@ -4,7 +4,8 @@
     "description": "Deteksi Berita Hoax",
     "manifest_version": 3,
     "author": "Jaya-jaya-jaya",
-    "permissions": ["tabs"],
+    "permissions": ["scripting", "activeTab", "tabs"],
+    "host_permissions": ["<all_urls>"],
     "background": {
         "service_worker": "templates/background.js"
     },
