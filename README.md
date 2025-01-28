@@ -15,7 +15,7 @@ pip install torch transformers
 ```
 
 ## Model Indobert
-Anda dapat mendownload model [disini]("https://drive.google.com/drive/folders/1C-fA8jzozmfB0Ixy-zyuN2c2W8zb7vP0?usp=sharing")
+Anda dapat mendownload model [di sini](https://drive.google.com/drive/folders/1C-fA8jzozmfB0Ixy-zyuN2c2W8zb7vP0?usp=sharing).
 
 ## Penggunaan
 1. Impor kelas `BertModel` dari `bert_model.py`.
