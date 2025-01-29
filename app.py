@@ -12,7 +12,7 @@ app = Flask(__name__)
 logging.basicConfig(level=logging.DEBUG)
 
 # Load the BERT model
-token = "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"
+token = "your_huggingface_token"
 bert_model = BertModel(token)
 
 @app.route('/get_content', methods=['POST'])
