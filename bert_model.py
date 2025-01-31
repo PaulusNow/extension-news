@@ -2,11 +2,15 @@ import torch
 from transformers import BertTokenizer, BertForSequenceClassification
 
 class BertModel:
-    def __init__(self, token):
-        self.token = token
-        # Load the tokenizer and model from the new pretrained model
-        self.tokenizer = BertTokenizer.from_pretrained('indobenchmark/indobert-base-p1', use_auth_token=self.token)
-        self.model = BertForSequenceClassification.from_pretrained('indobenchmark/indobert-base-p1', use_auth_token=self.token)
+    def __init__(self, model_path):
+        # Load the tokenizer
+        self.tokenizer = BertTokenizer.from_pretrained('indobenchmark/indobert-base-p1')
+        
+        # Load the model architecture
+        self.model = BertForSequenceClassification.from_pretrained('indobenchmark/indobert-base-p1', num_labels=2)
+        
+        # Load the trained weights
+        self.model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))  
         self.model.eval()
 
     def preprocess_text(self, text):
@@ -22,8 +26,18 @@ class BertModel:
 
         with torch.no_grad():
             for chunk in chunks:
-                input_ids = torch.tensor([chunk])
-                outputs = self.model(input_ids)
+                inputs = self.tokenizer(
+                    text, 
+                    padding="max_length", 
+                    truncation=True, 
+                    max_length=512, 
+                    return_tensors="pt"
+                )
+                # Move inputs to the same device as the model
+                for key in inputs:
+                    inputs[key] = inputs[key].to(self.model.device)
+                
+                outputs = self.model(**inputs)
                 logits = outputs.logits
                 predictions.append(torch.argmax(logits, dim=1).item())
 

@@ -11,9 +11,17 @@ app = Flask(__name__)
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
 
-# Load the BERT model
-token = "your_huggingface_token"
-bert_model = BertModel(token)
+# Load the trained IndoBERT model
+model_path = "models/indobert_hoax_model.pth"  # Path to your .pth file
+bert_model = BertModel(model_path)  # Initialize the BertModel
+
+def clean_content(text):
+    unwanted_phrases = [
+        "ADVERTISEMENT SCROLL TO CONTINUE WITH CONTENT",
+    ]
+    for phrase in unwanted_phrases:
+        text = text.replace(phrase, "")
+    return text.strip()
 
 @app.route('/get_content', methods=['POST'])
 def get_content():
@@ -37,19 +45,24 @@ def get_content():
         title = soup.find('h1').text.strip() if soup.find('h1') else "No title found"
 
         if 'detik.com' in url:
-            content = soup.find('div', class_='detail__body-text itp_bodycontent')
+            content = (
+                soup.find('div', class_='detail__body-text itp_bodycontent') or
+                soup.find('div', class_='detail__body flex-grow min-w-0 font-helvetica text-lg itp_bodycontent')
+            )
         elif 'kompas.com' in url:
             content = soup.find('div', class_='col-bs9-7')
         elif 'cnnindonesia.com' in url:
             content = soup.find('div', class_='detail-wrap flex gap-4 relative')
         else:
             return jsonify({"error": "Unsupported URL. Please provide a detik.com or kompas.com URL."}), 400
-
-        paragraphs = content.find_all('p') if content else []
-        body_content = " ".join(p.text for p in paragraphs)
+        
+        # Extract all <p> and <strong> tags
+        paragraphs = content.find_all(['p', 'strong']) if content else []
+        body_content = " ".join(p.text for p in paragraphs) 
 
         # Clean up the body content
         body_content = re.sub(r'\s+', ' ', body_content).strip()
+        body_content = clean_content(body_content)  
 
         # Predict using the BERT model
         prediction = bert_model.predict(body_content)
