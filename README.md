@@ -15,7 +15,7 @@ pip install torch transformers
 ```
 
 ## Model Indobert
-Anda dapat mendownload model [di sini](https://drive.google.com/file/d/1ARnMnwUPV-kiuheFmATFe3Vn3XRfNILj/view?usp=sharing).
+Anda dapat mendownload model [di sini](https://drive.google.com/file/d/1g1pZCSTtnFh4KGtCT7bfDrxHCok8e7_w/view?usp=sharing).
 
 ## Link Google Colab
 Proses pembuatan model dapat dilihat [di sini](https://colab.research.google.com/drive/1ogTzOKrVZvxLcDWpgqA2Za02aGcokw7l?usp=sharing)
