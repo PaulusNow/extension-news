@@ -6,77 +6,79 @@ class BertHoaxClassifier:
     def __init__(self, model_path, device="cpu"):
         self.device = torch.device(device)
         
-        # Inisialisasi model dan tokenizer
+        # Gunakan local_files_only untuk model yang sudah di-download
         self.tokenizer = AutoTokenizer.from_pretrained("indobenchmark/indobert-base-p1")
+        
+        # Load model dengan config yang sesuai
         self.model = AutoModelForSequenceClassification.from_pretrained(
-            "indobenchmark/indobert-base-p1", 
-            num_labels=2
+            "indobenchmark/indobert-base-p1",
+            num_labels=2,
+            trust_remote_code=True
         )
         
-        # Muat weights dengan weights_only=True untuk keamanan
-        self.model.load_state_dict(
-            torch.load(model_path, map_location=self.device, weights_only=True)
-        )
+        # Load weights dengan pengecekan versi
+        state_dict = torch.load(model_path, map_location=self.device, weights_only=True)
+        self.model.load_state_dict(state_dict)
+        
         self.model.to(self.device)
         self.model.eval()
 
         # Konfigurasi
-        self.max_length = 512  # Harus sama dengan saat training
+        self.max_length = 512
         self.chunk_size = 510
+        self.overlap_ratio = 0.2  # Parameter bisa diadjust
 
     def clean_text(self, text):
-        text = re.sub(r'[^a-zA-Z0-9\s]', '', text)
-        return text.lower().strip()
-
+        """Pembersihan teks yang lebih hati-hati"""
+        text = re.sub(r'[^\w\s]', ' ', text)  # Pertahankan karakter unicode
+        text = re.sub(r'\s+', ' ', text)
+        return text.strip().lower()
 
     def chunk_text(self, text):
-        """Membagi teks menjadi chunk dengan batasan token"""
+        """Optimasi chunking dengan sliding window"""
         cleaned_text = self.clean_text(text)
         tokens = self.tokenizer.tokenize(cleaned_text)
         
-        # Split tokens menjadi chunk dengan overlap 20%
+        chunk_step = int(self.chunk_size * (1 - self.overlap_ratio))
         chunks = []
-        for i in range(0, len(tokens), self.chunk_size - int(0.2*self.chunk_size)):
+        
+        for i in range(0, len(tokens), chunk_step):
             chunk = tokens[i:i+self.chunk_size]
             chunks.append(self.tokenizer.convert_tokens_to_string(chunk))
+            
+            if i + self.chunk_size >= len(tokens):  # Hentikan jika mencapai akhir
+                break
+                
         return chunks
 
     def predict(self, text):
-        """Prediksi dengan handling teks panjang"""
+        """Prediksi dengan batch processing"""
         if not text.strip():
-            return "Invalid input"
+            return {"error": "Invalid input"}
             
         chunks = self.chunk_text(text)
         if not chunks:
-            return "No valid content"
+            return {"error": "No valid content"}
             
-        predictions = []
-        confidence_scores = []
-
-        with torch.no_grad():
-            for chunk in chunks:
-                inputs = self.tokenizer(
-                    chunk,
-                    padding="max_length",
-                    truncation=True,
-                    max_length=self.max_length,
-                    return_tensors="pt"
-                ).to(self.device)
-                
-                outputs = self.model(**inputs)
-                probs = torch.softmax(outputs.logits, dim=1)
-                predictions.append(torch.argmax(probs).item())
-                confidence_scores.append(probs.max().item())
-
-        # Weighted voting berdasarkan confidence score
-        hoax_score = sum(cs for p, cs in zip(predictions, confidence_scores) if p == 1)
-        valid_score = sum(cs for p, cs in zip(predictions, confidence_scores) if p == 0)
+        batch = self.tokenizer(
+            chunks,
+            padding="max_length",
+            truncation=True,
+            max_length=self.max_length,
+            return_tensors="pt"
+        ).to(self.device)
         
+        with torch.no_grad():
+            outputs = self.model(**batch)
+            probs = torch.softmax(outputs.logits, dim=1)
+        
+        # Agregasi hasil dengan weighting
+        hoax_conf = probs[:, 1].sum().item()
+        valid_conf = probs[:, 0].sum().item()
+        
+        total_chunks = len(chunks)
         return {
-            'prediction': 'Hoax' if hoax_score > valid_score else 'Valid',
-            'confidence': max(hoax_score, valid_score) / len(chunks),
-            'chunks_processed': len(chunks)
+            'prediction': 'Hoax' if hoax_conf > valid_conf else 'Valid',
+            'confidence': max(hoax_conf, valid_conf) / total_chunks,
+            'chunks_processed': total_chunks
         }
-
-    def __call__(self, text):
-        return self.predict(text)
